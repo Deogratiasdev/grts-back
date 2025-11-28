@@ -69,6 +69,35 @@ export const getConfirmationEmailTemplate = ({ prenom, nom, sujet, message }) =>
         .footer a:hover {
           text-decoration: underline;
         }
+        .button-container {
+          margin: 2rem 0;
+          text-align: center;
+        }
+        .button {
+          display: inline-block;
+          padding: 12px 24px;
+          margin: 0 10px 15px;
+          border-radius: 6px;
+          color: white;
+          text-decoration: none;
+          font-weight: 500;
+          text-align: center;
+          transition: all 0.3s ease;
+          min-width: 200px;
+        }
+        .button-whatsapp {
+          background-color: #25D366;
+          border: 1px solid #25D366;
+        }
+        .button-portfolio {
+          background-color: #ff6b35;
+          border: 1px solid #ff6b35;
+        }
+        .button:hover {
+          opacity: 0.9;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
         @media (max-width: 600px) {
           .container {
             margin: 0;
@@ -94,6 +123,15 @@ export const getConfirmationEmailTemplate = ({ prenom, nom, sujet, message }) =>
           <p>Je m'engage à vous répondre dans les plus brefs délais, généralement sous 24 à 48 heures.</p>
           
           <p>Pour toute urgence, vous pouvez me contacter directement au <a href="tel:+22990259815" style="color: #ff6b35; text-decoration: none;">+229 90 25 98 15</a>.</p>
+          
+          <div class="button-container">
+            <a href="https://wa.me/22990259815" class="button button-whatsapp" target="_blank" style="color: white; text-decoration: none;">
+              Me contacter sur WhatsApp
+            </a>
+            <a href="https://grts.pages.dev" class="button button-portfolio" target="_blank" style="color: white; text-decoration: none;">
+              Accéder à mon portfolio
+            </a>
+          </div>
           
           <p>Bien cordialement,</p>
           

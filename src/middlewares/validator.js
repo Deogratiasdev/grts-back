@@ -14,9 +14,11 @@ const validateContact = (value) => {
     errors.push('Veuillez fournir une adresse email valide');
   }
   
-  // Validation du téléphone (optionnel)
-  if (phone && !/^[0-9+\s-]{10,20}$/.test(phone)) {
-    errors.push('Le numéro de téléphone est invalide');
+  // Validation du téléphone (obligatoire)
+  if (!phone || phone.trim() === '') {
+    errors.push('Le numéro de téléphone est obligatoire');
+  } else if (!/^[0-9+\s-]{10,20}$/.test(phone)) {
+    errors.push('Le numéro de téléphone est invalide. Format attendu : +33 6 12 34 56 78');
   }
   
   // Validation de l'objet
@@ -26,13 +28,13 @@ const validateContact = (value) => {
     errors.push('L\'objet ne doit pas dépasser 200 caractères');
   }
   
-  // Validation du message
-  if (!message || message.trim() === '') {
-    errors.push('Le message est requis');
-  } else if (message.length > 1000) {
-    errors.push('Le message ne doit pas dépasser 1000 caractères');
-  } else if (message.length < 10) {
-    errors.push('Le message doit contenir au moins 10 caractères');
+  // Validation du message (optionnel)
+  if (message && message.trim() !== '') {
+    if (message.length > 1000) {
+      errors.push('Le message ne doit pas dépasser 1000 caractères');
+    } else if (message.length < 10) {
+      errors.push('Le message doit contenir au moins 10 caractères s\'il est fourni');
+    }
   }
   
   // Vérification du type de useWhatsApp
