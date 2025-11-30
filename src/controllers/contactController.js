@@ -1,9 +1,6 @@
-import crypto from 'crypto';
 import db from '../config/db.js';
 import { sendEmail } from '../services/emailService.js';
 import { getConfirmationEmailTemplate } from '../templates/confirmationEmail.js';
-import { getAdminNotificationTemplate } from '../templates/adminNotification.js';
-import { decryptEmail } from '../config/db-init.js';
 import { logger } from '../utils/logger.js';
 
 // Fonction utilitaire pour valider l'email
@@ -128,46 +125,39 @@ export const submitContactForm = async (c) => {
       logger.warn(`[${requestId}] Email de confirmation non envoyé : adresse email invalide (${email})`);
     }
     
-    // Envoyer les notifications aux administrateurs (de manière asynchrone)
-    try {
-      logger.debug(`[${requestId}] Récupération des emails des administrateurs`);
-      const admins = await db.execute({
-        sql: 'SELECT email_encrypted FROM admins WHERE is_active = 1'
-      });
-
-      const notificationPromises = admins.rows.map(async (admin) => {
-        const adminEmail = decryptEmail(admin.email_encrypted);
-        if (adminEmail) {
-          try {
-            logger.debug(`[${requestId}] Envoi de la notification à l'administrateur: ${adminEmail}`);
-            await sendEmail({
-              to: adminEmail,
-              subject: `Nouveau message de ${prenom || 'un visiteur'}`,
-              html: getAdminNotificationTemplate({ 
-                prenom, 
-                nom, 
-                email, 
-                telephone, 
-                projet,
-                whatsapp 
-              })
-            });
-            logger.info(`[${requestId}] Notification envoyée avec succès à ${adminEmail}`);
-          } catch (emailError) {
-            logger.error(`[${requestId}] Échec de l'envoi de la notification à ${adminEmail}`, {
-              error: emailError.message,
-              stack: emailError.stack
-            });
-          }
-        }
-      });
-
-      await Promise.all(notificationPromises);
-    } catch (error) {
-      logger.error(`[${requestId}] Erreur lors de l'envoi des notifications`, error);
-      // Ne pas échouer la requête à cause des notifications
+    // Envoyer une notification à l'email de contact configuré (si défini)
+    const contactEmail = process.env.CONTACT_EMAIL;
+    if (contactEmail) {
+      try {
+        logger.debug(`[${requestId}] Envoi d'une notification à l'email de contact: ${contactEmail}`);
+        
+        await sendEmail({
+          to: contactEmail,
+          subject: `Nouveau message de ${prenom || 'un visiteur'}`,
+          html: `
+            <h2>Nouveau message de contact</h2>
+            <p>Vous avez reçu un nouveau message de la part de :</p>
+            <ul>
+              ${prenom ? `<li><strong>Prénom :</strong> ${prenom}</li>` : ''}
+              ${nom ? `<li><strong>Nom :</strong> ${nom}</li>` : ''}
+              <li><strong>Email :</strong> ${email}</li>
+              ${telephone ? `<li><strong>Téléphone :</strong> ${telephone} ${whatsapp ? '(Disponible sur WhatsApp)' : ''}</li>` : ''}
+              <li><strong>Projet :</strong> ${projet}</li>
+            </ul>
+            <p>Date : ${new Date().toLocaleString()}</p>
+          `
+        });
+        
+        logger.info(`[${requestId}] Notification envoyée avec succès à ${contactEmail}`);
+      } catch (error) {
+        logger.error(`[${requestId}] Erreur lors de l'envoi de la notification à ${contactEmail}`, {
+          error: error.message,
+          stack: error.stack
+        });
+        // Ne pas échouer la requête si l'envoi de la notification échoue
+      }
     }
-
+    
     const processingTime = Date.now() - startTime;
     logger.info(`[${requestId}] Formulaire traité avec succès en ${processingTime}ms`);
     

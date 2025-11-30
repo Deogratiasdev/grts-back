@@ -39,10 +39,18 @@ const sendEmail = async ({ to, subject, html: htmlContent, sender = null }) => {
 
   const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
   sendSmtpEmail.to = toList;
-  sendSmtpEmail.sender = sender || {
-    email: process.env.BREVO_SENDER_EMAIL,
-    name: process.env.BREVO_SENDER_NAME || 'Portfolio Contact'
+  // Configuration de l'expéditeur
+  const senderEmail = process.env.BREVO_SENDER_EMAIL || 'noreply@grts.pages.dev';
+  const senderName = process.env.BREVO_SENDER_NAME || 'GRTS Contact Form';
+  
+  // Vérification du format de l'email de l'expéditeur
+  const senderEmailMatch = senderEmail.match(/([^<]+)<([^>]+)>/) || [null, senderName, senderEmail];
+  const senderConfig = {
+    email: senderEmailMatch[2] ? senderEmailMatch[2].trim() : 'noreply@grts.pages.dev',
+    name: senderEmailMatch[1] ? senderEmailMatch[1].trim() : senderName
   };
+
+  sendSmtpEmail.sender = sender || senderConfig;
   sendSmtpEmail.subject = subject || 'Nouveau message';
   sendSmtpEmail.htmlContent = htmlContent || '';
 

@@ -14,7 +14,9 @@ logger.info(`Démarrage du serveur en mode ${NODE_ENV}...`);
 async function initializeDatabase() {
   logger.debug('Initialisation de la base de données...');
   try {
-    logger.debug('Création de la table contacts si elle n\'existe pas');
+    logger.debug('Création des tables si elles n\'existent pas');
+    
+    // Table contacts
     await db.execute(`
       CREATE TABLE IF NOT EXISTS contacts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,8 +29,10 @@ async function initializeDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    
     console.log('✅ Base de données initialisée avec succès');
     logger.info('Base de données initialisée avec succès');
+    
   } catch (error) {
     logger.error('Erreur lors de l\'initialisation de la base de données', error);
     process.exit(1);
@@ -60,27 +64,31 @@ app.use('*', async (c, next) => {
 });
 
 // Démarrer le serveur
-async function startServer() {
+const startServer = async () => {
+  let server;
+  
   try {
-    logger.info('Démarrage du serveur...');
     await initializeDatabase();
-
-    const server = serve({
+    
+    server = serve({
       fetch: app.fetch,
       port: PORT,
-    }, (info) => {
-      logger.info(`🚀 Serveur démarré sur http://localhost:${info.port}`);
+      hostname: '0.0.0.0' // Écoute sur toutes les interfaces réseau
+    });
+
+    server.on('listening', () => {
+      const address = server.address();
+      const host = address.address === '::' ? 'localhost' : address.address;
+      logger.info(`Serveur démarré sur http://${host}:${PORT}`);
       logger.info(`Environnement: ${NODE_ENV}`);
-      logger.info(`Base de données: ${process.env.TURSO_DB_URL ? 'Turso DB' : 'SQLite en mémoire'}`);
-      console.log(`📝 Documentation de l'API: http://localhost:${info.port}/api`);
+      logger.info(`CORS autorisé pour :`);
+      logger.info(`- ${process.env.FRONTEND_URL}`);
+      logger.info('- http://localhost:8080');
+      logger.info('- http://127.0.0.1:8080');
+      logger.info('- http://192.168.137.1:8080');
     });
 
-    // Gestion des erreurs non capturées
-    process.on('uncaughtException', (error) => {
-      logger.error('Exception non capturée', error);
-      process.exit(1);
-    });
-
+    // Gestion des erreurs non gérées
     process.on('unhandledRejection', (reason, promise) => {
       logger.error('Rejet non géré à la promesse:', { promise, reason });
     });
@@ -88,18 +96,21 @@ async function startServer() {
     // Gestion de l'arrêt propre
     const shutdown = async () => {
       logger.info('Arrêt du serveur en cours...');
-      server.close(() => {
-        logger.info('Serveur arrêté');
-        process.exit(0);
-      });
+      
+      if (server) {
+        server.close(() => {
+          logger.info('Serveur arrêté');
+          process.exit(0);
+        });
 
-      // Forcer l'arrêt après 10 secondes
-      setTimeout(() => {
-        logger.warn('Forçage de l\'arrêt du serveur...');
-        process.exit(1);
-      }, 10000);
-      console.log('✅ Serveur arrêté avec succès');
-      process.exit(0);
+        // Forcer l'arrêt après 10 secondes
+        setTimeout(() => {
+          logger.warn('Forçage de l\'arrêt du serveur...');
+          process.exit(1);
+        }, 10000);
+      } else {
+        process.exit(0);
+      }
     };
 
     // Gestion des signaux d'arrêt
@@ -108,6 +119,7 @@ async function startServer() {
 
   } catch (error) {
     console.error('❌ Échec du démarrage du serveur:', error);
+    logger.error('Échec du démarrage du serveur:', error);
     process.exit(1);
   }
 };

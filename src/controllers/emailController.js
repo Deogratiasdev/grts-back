@@ -45,24 +45,3 @@ export const sendConfirmationEmail = async (to, name) => {
 
   return sendEmail({ to, subject, html });
 };
-
-// Fonction pour envoyer une notification d'administration
-export const sendAdminNotification = async (formData) => {
-  const subject = 'Nouveau message de contact';
-  const to = process.env.ADMIN_EMAIL_1;
-  
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2>Nouveau message de contact</h2>
-      <p>Vous avez reçu un nouveau message de :</p>
-      <ul>
-        <li><strong>Nom :</strong> ${formData.nom || 'Non spécifié'}</li>
-        <li><strong>Email :</strong> ${formData.email || 'Non spécifié'}</li>
-        <li><strong>Téléphone :</strong> ${formData.telephone || 'Non spécifié'}</li>
-        <li><strong>Projet :</strong> ${formData.projet || 'Non spécifié'}</li>
-      </ul>
-    </div>
-  `;
-
-  return sendEmail({ to, subject, html });
-};
