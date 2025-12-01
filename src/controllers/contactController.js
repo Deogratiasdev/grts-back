@@ -1,6 +1,7 @@
 import db from '../config/db.js';
 import { sendEmail } from '../services/emailService.js';
 import { getConfirmationEmailTemplate } from '../templates/confirmationEmail.js';
+import { getAdminNotificationTemplate } from '../templates/adminNotificationEmail.js';
 import { logger } from '../utils/logger.js';
 
 // Fonction utilitaire pour valider l'email
@@ -117,6 +118,27 @@ export const submitContactForm = async (c) => {
           })
         });
         logger.info(`[${requestId}] Email de confirmation envoyé avec succès à ${email}`);
+        
+        // Envoyer une notification à l'administrateur
+        try {
+          await sendEmail({
+            to: process.env.ADMIN_EMAIL_1 || 'gratiashounnou@gmail.com',
+            subject: `[${projet ? projet.substring(0, 30) + (projet.length > 30 ? '...' : '') : 'Nouveau message'}] ${prenom || nom ? `de ${prenom || nom}` : 'Sans nom'}`,
+            html: getAdminNotificationTemplate({
+              prenom,
+              nom,
+              email,
+              telephone,
+              projet,
+              sujet: projet || 'Sans objet',
+              whatsapp
+            })
+          });
+          logger.info(`[${requestId}] Notification admin envoyée avec succès`);
+        } catch (adminEmailError) {
+          logger.error(`[${requestId}] Erreur lors de l'envoi de la notification admin:`, adminEmailError);
+          // Ne pas échouer la requête si l'email admin échoue
+        }
       } catch (emailError) {
         logger.error(`[${requestId}] Erreur lors de l'envoi de l'email de confirmation:`, emailError);
         // Ne pas échouer la requête si l'email échoue

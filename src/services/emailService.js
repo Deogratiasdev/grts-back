@@ -40,8 +40,8 @@ const sendEmail = async ({ to, subject, html: htmlContent, sender = null }) => {
   const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
   sendSmtpEmail.to = toList;
   // Configuration de l'expéditeur
-  const senderEmail = process.env.BREVO_SENDER_EMAIL || 'noreply@grts.pages.dev';
-  const senderName = process.env.BREVO_SENDER_NAME || 'GRTS Contact Form';
+  const senderEmail = process.env.BREVO_SENDER_EMAIL || 'deogratiashounnou1@gmail.com';
+  const senderName = process.env.BREVO_SENDER_NAME || 'grts.pages.dev';
   
   // Vérification du format de l'email de l'expéditeur
   const senderEmailMatch = senderEmail.match(/([^<]+)<([^>]+)>/) || [null, senderName, senderEmail];
