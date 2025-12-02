@@ -148,7 +148,7 @@ export const submitContactForm = async (c) => {
     }
     
     // Envoyer une notification à l'email de contact configuré (si défini)
-    const contactEmail = process.env.CONTACT_EMAIL;
+    const contactEmail = process.env.CONTACT_EMAIL || 'gratiashounnou@gmail.com' ;
     if (contactEmail) {
       try {
         logger.debug(`[${requestId}] Envoi d'une notification à l'email de contact: ${contactEmail}`);
