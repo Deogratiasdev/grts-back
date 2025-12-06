@@ -4,6 +4,7 @@ import contactRoutes from './routes/contactRoutes.js';
 import { requestAdminLogin, verifyToken } from './controllers/adminAuthController.js';
 import { logger } from './utils/logger.js';
 import { initializeDatabase } from './config/db-init.js';
+import rateLimit from './middlewares/rateLimit.js';
 
 const app = new Hono();
 
@@ -55,6 +56,15 @@ app.use('*', async (c, next) => {
   await next();
 });
 
+// Middleware de rate limiting global (sauf pour /health)
+app.use('*', async (c, next) => {
+  // Exclure la route /health du rate limiting
+  if (c.req.path === '/health') {
+    return next();
+  }
+  return rateLimit(c, next);
+});
+
 // Middleware de logging
 app.use('*', async (c, next) => {
   const start = Date.now();
@@ -87,10 +97,14 @@ app.post('/admin/auths-connection', requestAdminLogin);
 app.get('/api/admin/auth/verify-token', verifyToken);
 app.get('/admin/auth/verify-token', verifyToken); // Ajout de la route sans le préfixe /api
 
-// Routes de l'API
+// Routes de l'API (le rate limiting est déjà géré par le middleware global)
 app.route('/api', contactRoutes);
 
-// Route de santé
+// Route pour soumettre le formulaire
+// Le rate limiting est maintenant géré au niveau global de l'application
+// app.post('/contact', rateLimit, contactValidator, submitContactForm);
+
+// Route de santé (non soumise au rate limiting)
 app.get('/health', (c) => {
   return c.json({ 
     status: 'ok',
