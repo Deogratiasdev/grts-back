@@ -4,27 +4,29 @@ import { getConfirmationEmailTemplate } from '../templates/confirmationEmail.js'
 import { getAdminNotificationTemplate } from '../templates/adminNotificationEmail.js';
 import { logger } from '../utils/logger.js';
 
-// Fonction utilitaire pour valider l'email
+// Validation d'email optimisée
 const isValidEmail = (email) => {
-  if (!email) return false;
+  if (typeof email !== 'string') return false;
   
-  // Vérifie le format de base de l'email
-  const re = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
+  // Vérification rapide de la longueur minimale et présence de @
+  if (email.length < 5 || email.indexOf('@') === -1) return false;
   
-  // Vérifie que l'email ne commence ou ne se termine pas par un point ou un tiret
-  const parts = email.split('@');
-  if (parts.length !== 2) return false;
+  // Vérification des parties locales et de domaine
+  const atIndex = email.lastIndexOf('@');
+  const localPart = email.substring(0, atIndex);
+  const domainPart = email.substring(atIndex + 1);
   
-  const localPart = parts[0];
-  const domainPart = parts[1];
+  // Vérifications rapides
+  if (!localPart || !domainPart || 
+      localPart.endsWith('.') || 
+      domainPart.startsWith('-') || 
+      domainPart.endsWith('-') ||
+      domainPart.indexOf('.') === -1) {
+    return false;
+  }
   
-  return re.test(email) && 
-         !localPart.startsWith('-') && 
-         !localPart.endsWith('-') &&
-         !localPart.startsWith('.') && 
-         !localPart.endsWith('.') &&
-         !domainPart.startsWith('-') &&
-         !domainPart.endsWith('-');
+  // Validation finale par regex (plus simple et plus rapide)
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 };
 
 export const submitContactForm = async (c) => {
@@ -37,8 +39,9 @@ export const submitContactForm = async (c) => {
       ip: c.req.header('x-forwarded-for') || c.req.header('cf-connecting-ip') || 'unknown'
     });
     
-    // Récupérer les données validées
-    const { prenom, nom, email, telephone, projet, whatsapp } = c.req.valid || {};
+    // Récupérer les données validées et forcer whatsapp à true
+    const { prenom, nom, email, telephone, projet } = c.req.valid || {};
+    const whatsapp = true; // Toujours activer WhatsApp
     
     logger.info(`[${requestId}] Tentative de soumission pour l'email: ${email}`);
     logger.debug(`[${requestId}] Données du formulaire:`, { 
@@ -50,21 +53,18 @@ export const submitContactForm = async (c) => {
       whatsapp: whatsapp ? 'oui' : 'non'
     });
     
-    // Vérifier si l'email existe déjà
-    logger.debug(`[${requestId}] Vérification de l'existence de l'email dans la base de données`);
+    // Vérification d'email existant optimisée
+    logger.debug(`[${requestId}] Vérification de l'existence de l'email`);
     const existing = await db.execute({
-      sql: 'SELECT id, created_at FROM contacts WHERE email = ?',
+      sql: 'SELECT 1 FROM contacts WHERE email = ? LIMIT 1',
       args: [email]
     });
     
     if (existing.rows.length > 0) {
-      const submissionDate = new Date(existing.rows[0].created_at).toLocaleString('fr-FR');
-      logger.warn(`[${requestId}] Tentative de soumission avec un email existant: ${email} (déjà soumis le ${submissionDate})`);
-      
+      logger.warn(`[${requestId}] Email déjà existant: ${email}`);
       return c.json({ 
         success: false,
-        error: 'Un message avec cette adresse email a déjà été envoyé.',
-        submissionDate: existing.rows[0].created_at
+        error: 'Un message avec cette adresse email a déjà été envoyé.'
       }, 400);
     }
 
@@ -93,37 +93,54 @@ export const submitContactForm = async (c) => {
       throw new Error('Erreur lors de la création du contact');
     }
 
-    // Préparer la réponse de succès
-    const successResponse = { 
+    // Préparer la réponse de succès optimisée
+    const response = { 
       success: true, 
-      message: 'Votre message a été envoyé avec succès. Je vous recontacterai bientôt !',
-      requestId,
-      // Si WhatsApp est activé et qu'un numéro est fourni, ajouter l'URL WhatsApp
-      ...(whatsapp && telephone ? {
-        whatsappUrl: `https://wa.me/${telephone.replace(/[^0-9+]/g, '')}?text=${encodeURIComponent('Bonjour, je vous contacte suite à votre message sur mon portfolio.')}`
-      } : {})
+      message: 'Message envoyé avec succès. Je vous recontacterai bientôt !',
+      requestId
     };
+    
+    // Ajouter l'URL WhatsApp si un numéro est fourni
+    if (telephone) {
+      const cleanPhone = telephone.replace(/[^0-9+]/g, '');
+      const message = encodeURIComponent('Bonjour, je vous contacte suite à votre message sur mon portfolio.');
+      response.whatsappUrl = `https://wa.me/${cleanPhone}?text=${message}`;
+    }
 
-    // Envoyer un email de confirmation au client
-    if (isValidEmail(email)) {
+        // Envoi des emails en arrière-plan optimisé
+    const sendEmailsInBackground = async () => {
+      if (!isValidEmail(email)) {
+        logger.warn(`[${requestId}] Email invalide: ${email}`);
+        return;
+      }
+
       try {
-        await sendEmail({
-          to: email,
-          subject: 'Confirmation de réception - ' + (projet ? projet.substring(0, 50) + (projet.length > 50 ? '...' : '') : 'Votre demande'),
-          html: getConfirmationEmailTemplate({
-            prenom: prenom,
-            nom: nom,
-            sujet: projet ? projet.substring(0, 100) + (projet.length > 100 ? '...' : '') : 'votre demande',
-            message: projet
-          })
-        });
-        logger.info(`[${requestId}] Email de confirmation envoyé avec succès à ${email}`);
-        
-        // Envoyer une notification à l'administrateur
-        try {
-          await sendEmail({
+        // Préparer les données communes
+        const emailSubject = projet 
+          ? `[${projet.substring(0, 30)}${projet.length > 30 ? '...' : ''}]` 
+          : 'Nouveau message';
+        const senderName = prenom || nom ? `de ${prenom || nom}` : 'Sans nom';
+
+        // Envoyer les emails en parallèle
+        await Promise.all([
+          // Email de confirmation
+          sendEmail({
+            to: email,
+            subject: `Confirmation - ${emailSubject}`,
+            html: getConfirmationEmailTemplate({
+              prenom,
+              nom,
+              sujet: projet?.substring(0, 100) || 'votre demande',
+              message: projet
+            })
+          }).catch(error => 
+            logger.error(`[${requestId}] Erreur email confirmation:`, error)
+          ),
+          
+          // Notification admin
+          sendEmail({
             to: process.env.ADMIN_EMAIL_1 || 'gratiashounnou@gmail.com',
-            subject: `[${projet ? projet.substring(0, 30) + (projet.length > 30 ? '...' : '') : 'Nouveau message'}] ${prenom || nom ? `de ${prenom || nom}` : 'Sans nom'}`,
+            subject: `${emailSubject} ${senderName}`,
             html: getAdminNotificationTemplate({
               prenom,
               nom,
@@ -131,21 +148,23 @@ export const submitContactForm = async (c) => {
               telephone,
               projet,
               sujet: projet || 'Sans objet',
-              whatsapp
+              whatsapp: true
             })
-          });
-          logger.info(`[${requestId}] Notification admin envoyée avec succès`);
-        } catch (adminEmailError) {
-          logger.error(`[${requestId}] Erreur lors de l'envoi de la notification admin:`, adminEmailError);
-          // Ne pas échouer la requête si l'email admin échoue
-        }
-      } catch (emailError) {
-        logger.error(`[${requestId}] Erreur lors de l'envoi de l'email de confirmation:`, emailError);
-        // Ne pas échouer la requête si l'email échoue
+          }).catch(error => 
+            logger.error(`[${requestId}] Erreur notification admin:`, error)
+          )
+        ]);
+        
+        logger.info(`[${requestId}] Tous les emails ont été traités`);
+      } catch (error) {
+        logger.error(`[${requestId}] Erreur globale d'envoi d'emails:`, error);
       }
-    } else {
-      logger.warn(`[${requestId}] Email de confirmation non envoyé : adresse email invalide (${email})`);
-    }
+    };
+    
+    // Lancer l'envoi des emails en arrière-plan sans attendre
+    sendEmailsInBackground().catch(error => {
+      logger.error(`[${requestId}] Erreur non gérée dans sendEmailsInBackground:`, error);
+    });
     
     // Envoyer une notification à l'email de contact configuré
     const contactEmail = process.env.CONTACT_EMAIL || 'gratiashounnou@gmail.com';

@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { compress } from 'hono/compress';
 import contactRoutes from './routes/contactRoutes.js';
 import { requestAdminLogin, verifyToken } from './controllers/adminAuthController.js';
 import { logger } from './utils/logger.js';
@@ -7,6 +8,9 @@ import { initializeDatabase } from './config/db-init.js';
 import rateLimit from './middlewares/rateLimit.js';
 
 const app = new Hono();
+
+// Activer la compression pour toutes les réponses
+app.use('*', compress());
 
 // Initialiser la base de données
 initializeDatabase().catch(error => {
