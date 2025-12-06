@@ -53,18 +53,27 @@ export const submitContactForm = async (c) => {
       whatsapp: whatsapp ? 'oui' : 'non'
     });
     
-    // Vérification d'email existant optimisée
+    // Vérification d'email existant optimisée avec récupération de la date
     logger.debug(`[${requestId}] Vérification de l'existence de l'email`);
     const existing = await db.execute({
-      sql: 'SELECT 1 FROM contacts WHERE email = ? LIMIT 1',
+      sql: 'SELECT created_at FROM contacts WHERE email = ? ORDER BY created_at DESC LIMIT 1',
       args: [email]
     });
     
     if (existing.rows.length > 0) {
-      logger.warn(`[${requestId}] Email déjà existant: ${email}`);
+      const existingDate = new Date(existing.rows[0].created_at);
+      const formattedDate = existingDate.toLocaleString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      logger.warn(`[${requestId}] Email déjà existant: ${email} (dernier envoi: ${formattedDate})`);
       return c.json({ 
         success: false,
-        error: 'Un message avec cette adresse email a déjà été envoyé.'
+        error: `Un message avec cette adresse email a déjà été envoyé le ${formattedDate}.`
       }, 400);
     }
 
@@ -107,7 +116,10 @@ export const submitContactForm = async (c) => {
       response.whatsappUrl = `https://wa.me/${cleanPhone}?text=${message}`;
     }
 
-        // Envoi des emails en arrière-plan optimisé
+    // Envoyer la réponse au client immédiatement
+    c.res = c.json(response);
+
+    // Envoi des emails en arrière-plan optimisé
     const sendEmailsInBackground = async () => {
       if (!isValidEmail(email)) {
         logger.warn(`[${requestId}] Email invalide: ${email}`);
@@ -166,8 +178,11 @@ export const submitContactForm = async (c) => {
       logger.error(`[${requestId}] Erreur non gérée dans sendEmailsInBackground:`, error);
     });
     
+    // Ne pas attendre la fin de l'envoi des emails
+    return c.res;
+    
     // Envoyer une notification à l'email de contact configuré
-    const contactEmail = process.env.CONTACT_EMAIL || 'gratiashounnou@gmail.com';
+    const contactEmail = process.env.CONTACT_EMAIL || 'deogratiashounnou1@gmail.com';
     if (contactEmail) {
       try {
         logger.debug(`[${requestId}] Envoi d'une notification à l'email de contact: ${contactEmail}`);
@@ -180,6 +195,10 @@ export const submitContactForm = async (c) => {
           hour: '2-digit',
           minute: '2-digit'
         });
+        
+        const emailSubject = projet 
+          ? `[${projet.substring(0, 30)}${projet.length > 30 ? '...' : ''}]` 
+          : 'Nouveau message';
         
         await sendEmail({
           to: contactEmail,
@@ -233,14 +252,14 @@ export const submitContactForm = async (c) => {
                     <i class="fas fa-reply" style="color: #e65100;"></i> Répondre au visiteur
                   </h3>
                   <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 15px;">
-                    <a href="https://wa.me/${telephone ? telephone.replace(/[^0-9+]/g, '') : '+22900000000'}${telephone ? `?text=${encodeURIComponent(`Bonjour ${prenom || nom ? `Monsieur${nom ? ' ' + nom.toUpperCase() : ''}${prenom ? ' ' + prenom : ''}` : 'Madame, Monsieur'},\n\nJe vous écris car j'ai reçu votre message concernant "${objet || 'votre demande'}".\n\nCordialement,`)}` : ''}" 
+                    <a href="https://wa.me/${telephone ? telephone.replace(/[^0-9+]/g, '') : '+22900000000'}${telephone ? `?text=${encodeURIComponent(`Bonjour ${prenom || nom ? `Monsieur${nom ? ' ' + nom.toUpperCase() : ''}${prenom ? ' ' + prenom : ''}` : 'Madame, Monsieur'},\n\nJe vous écris car j'ai reçu votre message concernant "${projet || 'votre demande'}".\n\nCordialement,`)}` : ''}" 
                        style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; background-color: #25D366; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; transition: all 0.2s ease; opacity: ${telephone ? '1' : '0.7'};"
                        ${!telephone ? 'disabled title="Numéro de téléphone non fourni"' : ''}>
                       <i class="fab fa-whatsapp" style="font-size: 1.2em;"></i>
                       ${telephone ? 'Discuter sur WhatsApp' : 'WhatsApp non disponible'}
                     </a>
                     
-                    <a href="mailto:${email}?subject=Re: ${encodeURIComponent(objet || 'Votre demande')}&body=Bonjour ${prenom || nom ? `Monsieur${nom ? ' ' + nom.toUpperCase() : ''}${prenom ? ' ' + prenom : ''}` : 'Madame, Monsieur'},%0D%0A%0D%0AJe vous écris car j'ai reçu votre message concernant "${encodeURIComponent(objet || 'votre demande')}".%0D%0A%0D%0ACordialement," 
+                    <a href="mailto:${email}?subject=Re: ${encodeURIComponent(projet || 'Votre demande')}&body=Bonjour ${prenom || nom ? `Monsieur${nom ? ' ' + nom.toUpperCase() : ''}${prenom ? ' ' + prenom : ''}` : 'Madame, Monsieur'},%0D%0A%0D%0AJe vous écris car j'ai reçu votre message concernant "${encodeURIComponent(projet || 'votre demande')}".%0D%0A%0D%0ACordialement," 
                        style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; background-color: #ff6b35; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; transition: all 0.2s ease;">
                       <i class="fas fa-envelope" style="font-size: 1.1em;"></i>
                       Répondre par email
@@ -278,10 +297,10 @@ export const submitContactForm = async (c) => {
       }
     }
     
+    // La réponse a déjà été envoyée plus tôt
     const processingTime = Date.now() - startTime;
     logger.info(`[${requestId}] Formulaire traité avec succès en ${processingTime}ms`);
-    
-    return c.json(successResponse);
+    return;
   } catch (error) {
     const processingTime = Date.now() - startTime;
     logger.error(`[${requestId}] Erreur lors du traitement du formulaire (${processingTime}ms)`, error);
