@@ -147,26 +147,105 @@ export const submitContactForm = async (c) => {
       logger.warn(`[${requestId}] Email de confirmation non envoyé : adresse email invalide (${email})`);
     }
     
-    // Envoyer une notification à l'email de contact configuré (si défini)
-    const contactEmail = process.env.CONTACT_EMAIL || 'gratiashounnou@gmail.com' ;
+    // Envoyer une notification à l'email de contact configuré
+    const contactEmail = process.env.CONTACT_EMAIL || 'gratiashounnou@gmail.com';
     if (contactEmail) {
       try {
         logger.debug(`[${requestId}] Envoi d'une notification à l'email de contact: ${contactEmail}`);
         
+        const currentDate = new Date().toLocaleString('fr-FR', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        
         await sendEmail({
           to: contactEmail,
-          subject: `Nouveau message de ${prenom || 'un visiteur'}`,
+          subject: `📧 Nouveau message de ${prenom || 'un visiteur'} - ${projet ? projet.substring(0, 30) + (projet.length > 30 ? '...' : '') : 'Sans objet'}`,
           html: `
-            <h2>Nouveau message de contact</h2>
-            <p>Vous avez reçu un nouveau message de la part de :</p>
-            <ul>
-              ${prenom ? `<li><strong>Prénom :</strong> ${prenom}</li>` : ''}
-              ${nom ? `<li><strong>Nom :</strong> ${nom}</li>` : ''}
-              <li><strong>Email :</strong> ${email}</li>
-              ${telephone ? `<li><strong>Téléphone :</strong> ${telephone} ${whatsapp ? '(Disponible sur WhatsApp)' : ''}</li>` : ''}
-              <li><strong>Projet :</strong> ${projet}</li>
-            </ul>
-            <p>Date : ${new Date().toLocaleString()}</p>
+            <div style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; background: #ffffff;">
+              <div style="padding: 20px; text-align: center; border-bottom: 2px solid #ff6b35; background-color: #fff8f0;">
+                <h1 style="margin: 0; color: #e65100; font-weight: 600;">Nouveau message de contact</h1>
+                <p style="margin: 8px 0 0; color: #ff6b35; font-size: 0.95em;">${currentDate}</p>
+              </div>
+              
+              <div style="padding: 20px;">
+                <h2 style="color: #e65100; margin: 0 0 20px 0; font-size: 1.3em; display: flex; align-items: center; gap: 8px;">
+                  <i class="fas fa-user-circle"></i> Informations du contact
+                </h2>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                  <tbody>
+                    ${prenom ? `<tr><td style="padding: 8px 0; border-bottom: 1px solid #eee; width: 120px;"><strong>Prénom :</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #eee;">${prenom}</td></tr>` : ''}
+                    ${nom ? `<tr><td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Nom :</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #eee;">${nom}</td></tr>` : ''}
+                    <tr>
+                      <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Email :</strong></td>
+                      <td style="padding: 8px 0; border-bottom: 1px solid #eee;">
+                        <a href="mailto:${email}" style="color: #4a6fa5; text-decoration: none;">${email}</a>
+                      </td>
+                    </tr>
+                    ${telephone ? `
+                    <tr>
+                      <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Téléphone :</strong></td>
+                      <td style="padding: 8px 0; border-bottom: 1px solid #eee;">
+                        <a href="tel:${telephone}" style="color: #4a6fa5; text-decoration: none;">${telephone}</a>
+                        ${whatsapp ? ' <span style="background-color: #25D366; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.8em; margin-left: 5px;">WhatsApp</span>' : ''}
+                      </td>
+                    </tr>` : ''}
+                    <tr>
+                      <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Date :</strong></td>
+                      <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${currentDate}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <h3 style="color: #e65100; margin: 30px 0 15px 0; padding-bottom: 10px; border-bottom: 1px solid #ffe0b2; display: flex; align-items: center; gap: 8px;">
+                  <i class="fas fa-folder-open"></i> Détails du projet
+                </h3>
+                <div style="padding: 0 0 20px 0; margin-bottom: 20px; border-bottom: 1px solid #f5f5f5; line-height: 1.7;">
+                  ${projet ? projet.replace(/\n/g, '<br>') : 'Aucune description fournie'}
+                </div>
+
+                <!-- Section Répondre au visiteur -->
+                <div style="margin: 30px 0; padding: 20px; background-color: #fff8f0; border-radius: 8px; border: 1px solid #ffe0b2;">
+                  <h3 style="margin-top: 0; color: #e65100; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-reply" style="color: #e65100;"></i> Répondre au visiteur
+                  </h3>
+                  <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 15px;">
+                    <a href="https://wa.me/${telephone ? telephone.replace(/[^0-9+]/g, '') : '+22900000000'}${telephone ? `?text=${encodeURIComponent(`Bonjour ${prenom || nom ? `Monsieur${nom ? ' ' + nom.toUpperCase() : ''}${prenom ? ' ' + prenom : ''}` : 'Madame, Monsieur'},\n\nJe vous écris car j'ai reçu votre message concernant "${objet || 'votre demande'}".\n\nCordialement,`)}` : ''}" 
+                       style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; background-color: #25D366; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; transition: all 0.2s ease; opacity: ${telephone ? '1' : '0.7'};"
+                       ${!telephone ? 'disabled title="Numéro de téléphone non fourni"' : ''}>
+                      <i class="fab fa-whatsapp" style="font-size: 1.2em;"></i>
+                      ${telephone ? 'Discuter sur WhatsApp' : 'WhatsApp non disponible'}
+                    </a>
+                    
+                    <a href="mailto:${email}?subject=Re: ${encodeURIComponent(objet || 'Votre demande')}&body=Bonjour ${prenom || nom ? `Monsieur${nom ? ' ' + nom.toUpperCase() : ''}${prenom ? ' ' + prenom : ''}` : 'Madame, Monsieur'},%0D%0A%0D%0AJe vous écris car j'ai reçu votre message concernant "${encodeURIComponent(objet || 'votre demande')}".%0D%0A%0D%0ACordialement," 
+                       style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; background-color: #ff6b35; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; transition: all 0.2s ease;">
+                      <i class="fas fa-envelope" style="font-size: 1.1em;"></i>
+                      Répondre par email
+                    </a>
+                  </div>
+                  <p style="margin: 12px 0 0 0; font-size: 0.9em; color: #666;">
+                    <strong>Téléphone :</strong> 
+                    ${telephone ? `
+                      <a href="tel:${telephone}" style="color: #ff6b35; text-decoration: none;">${telephone}</a>
+                      ${whatsapp ? '<span style="background-color: #25D366; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.8em; margin-left: 5px;">WhatsApp activé</span>' : ''}
+                    ` : 'Non fourni'}
+                  </p>
+                  <p style="margin: 8px 0 0 0; font-size: 0.9em; color: #e65100;">
+                    <strong>Email :</strong> 
+                    <a href="mailto:${email}" style="color: #ff6b35; text-decoration: none;">${email}</a>
+                  </p>
+                </div>
+
+                <div style="margin-top: 40px; padding: 20px 0; border-top: 1px solid #ffe0b2; text-align: center; color: #ff6b35; font-size: 0.85em; background-color: #fff8f0; border-radius: 0 0 8px 8px;">
+                  <p style="margin: 0 0 8px 0;">Ce message a été envoyé depuis le formulaire de contact de votre site web.</p>
+                  <p style="margin: 0;">© ${new Date().getFullYear()} Tous droits réservés</p>
+                </div>
+              </div>
+            </div>
           `
         });
         

@@ -13,6 +13,21 @@ const getSubjectConfirmation = (sujet, prenom, nom) => {
   return messages[sujet] || `Merci pour votre message.`;
 };
 
+const getPrefilledMessage = (sujet) => {
+  const defaultMessage = "Bonjour Monsieur HOUNNOU Déo-Gratias,\n\nJe vous écris à propos de : **";
+  
+  const messages = {
+    'Demande de site web': `${defaultMessage} création d'un nouveau site web**.\n\nJe souhaiterais obtenir plus d'informations sur vos services et tarifs pour la création d'un site web.\n\nCordialement,`,
+    'Amélioration de site existant': `${defaultMessage} amélioration de mon site web existant**.\n\nJ'aimerais discuter des possibilités d'amélioration pour mon site actuel.\n\nCordialement,`,
+    'Partenariat': `${defaultMessage} opportunité de partenariat**.\n\nJe souhaiterais échanger sur une possible collaboration.\n\nCordialement,`,
+    'Proposition de poste': `${defaultMessage} opportunité professionnelle**.\n\nJe vous contacte concernant une opportunité qui pourrait vous intéresser.\n\nCordialement,`,
+    'Demande de devis': `${defaultMessage} demande de devis**.\n\nJ'aimerais obtenir un devis personnalisé pour vos services.\n\nCordialement,`,
+    'Autre': `${defaultMessage} [Votre objet]**.\n\n[Votre message]\n\nCordialement,`
+  };
+
+  return messages[sujet] || `${defaultMessage} [Votre objet]**.\n\n[Votre message]\n\nCordialement,`;
+};
+
 const getNextSteps = (sujet) => {
   const steps = {
     'Demande de site web': [
@@ -59,6 +74,21 @@ export const getConfirmationEmailTemplate = ({ prenom, nom, sujet, message }) =>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <title>Confirmation de réception - HOUNNOU Déo-Gratias</title>
+  <script>
+    function copyToClipboard() {
+      const message = document.querySelector('.prefilled-message div').innerText;
+      navigator.clipboard.writeText(message).then(() => {
+        const button = document.querySelector('.prefilled-message button');
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-check"></i> Message copié !';
+        button.style.background = '#38a169';
+        setTimeout(() => {
+          button.innerHTML = originalText;
+          button.style.background = '#ff6b35';
+        }, 2000);
+      });
+    }
+  </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -159,7 +189,8 @@ export const getConfirmationEmailTemplate = ({ prenom, nom, sujet, message }) =>
         text-decoration: underline;
       }
       .button-container {
-        margin: 2.5rem 0;
+        margin: 2.5rem auto;
+        max-width: 500px;
         text-align: center;
       }
       .button {
@@ -167,18 +198,18 @@ export const getConfirmationEmailTemplate = ({ prenom, nom, sujet, message }) =>
         align-items: center;
         justify-content: center;
         gap: 10px;
-        padding: 14px 28px;
-        margin: 0 10px 15px;
-        border-radius: 12px;
-        color: white;
+        padding: 12px 24px;
+        margin: 0 5px 10px;
+        border-radius: 8px;
+        color: #2a2a2a;
         text-decoration: none;
-        font-weight: 600;
+        font-weight: 500;
         text-align: center;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        min-width: 240px;
-        font-size: 1.05em;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
-        border: none;
+        transition: all 0.2s ease;
+        min-width: 180px;
+        font-size: 0.95em;
+        background: transparent;
+        border: 1px solid #e0e0e0;
         position: relative;
         overflow: hidden;
         z-index: 1;
@@ -190,53 +221,66 @@ export const getConfirmationEmailTemplate = ({ prenom, nom, sujet, message }) =>
         left: 0;
         right: 0;
         bottom: 0;
-        background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%);
         z-index: -1;
-        transition: opacity 0.3s ease;
-        opacity: 0.8;
+        transition: all 0.2s ease;
+        opacity: 0;
+        border-radius: 7px;
       }
+      
+      .button-whatsapp {
+        color: #25D366;
+        border-color: #25D366;
+      }
+      .button-whatsapp::before {
+        background: rgba(37, 211, 102, 0.1);
+      }
+      
+      .button-portfolio {
+        color: #ff6b35;
+        border-color: #ff6b35;
+      }
+      .button-portfolio::before {
+        background: rgba(255, 107, 53, 0.1);
+      }
+      
+      .button i {
+        font-size: 1.1em;
+        transition: transform 0.2s ease;
+      }
+      
+      .button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      }
+      
       .button:hover::before {
         opacity: 1;
       }
-      .button i {
-        font-size: 1.2em;
-        transition: transform 0.3s ease;
-      }
-      .button:hover i {
-        transform: translateX(3px);
-      }
-      .button-whatsapp {
-        background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
-        text-shadow: 0 1px 2px rgba(0,0,0,0.1);
-      }
-      .button-portfolio {
-        background: linear-gradient(135deg, #ff6b35 0%, #e94e1b 100%);
-        text-shadow: 0 1px 2px rgba(0,0,0,0.1);
-      }
-      .button:hover {
-        transform: translateY(-3px) scale(1.02);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.15);
-        opacity: 0.98;
-      }
+      
       .button:active {
-        transform: translateY(1px) scale(0.99);
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        transform: translateY(0);
+        box-shadow: none;
       }
       .next-steps {
         background: #f8f9fa;
         border-radius: 8px;
         padding: 1.5rem;
-        margin: 2rem 0;
-        border-left: 4px solid #ff6b35;
+        margin: 2.5rem auto;
+        max-width: 500px;
+        border: 1px solid #eaeaea;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.03);
       }
       .next-steps h3 {
-        margin-top: 0;
+        margin: 0 0 1rem 0;
         color: #2a2a2a;
-        font-size: 1.2rem;
-        margin-bottom: 1rem;
+        font-size: 1.1rem;
+        font-weight: 600;
         display: flex;
         align-items: center;
+        justify-content: center;
         gap: 10px;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #eee;
       }
       .next-steps h3 i {
         color: #ff6b35;
@@ -305,13 +349,25 @@ export const getConfirmationEmailTemplate = ({ prenom, nom, sujet, message }) =>
         
         <p>Je m'engage à vous répondre dans les plus brefs délais, généralement sous <strong>24 à 48 heures</strong>.</p>
         
+        <div class="prefilled-message" style="background: #f8f9fa; border-left: 4px solid #ff6b35; padding: 15px; margin: 25px 0; border-radius: 0 4px 4px 0;">
+          <p style="margin-top: 0; font-weight: 500; color: #2d3748; margin-bottom: 10px;">Pour me contacter plus facilement, vous pouvez copier ce message :</p>
+          <div style="background: white; padding: 12px; border: 1px solid #e2e8f0; border-radius: 4px; font-family: monospace; font-size: 14px; line-height: 1.5; color: #4a5568; white-space: pre-line; margin-bottom: 10px;">
+            ${getPrefilledMessage(sujet)}
+          </div>
+          <button onclick="copyToClipboard()" style="background: #ff6b35; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+            <i class="far fa-copy"></i> Copier le message
+          </button>
+        </div>
+        
         <div class="button-container">
-          <a href="https://wa.me/22990259815" class="button button-whatsapp" target="_blank">
-            <i class="fab fa-whatsapp"></i> Me contacter sur WhatsApp
-          </a>
-          <a href="https://grts.pages.dev" class="button button-portfolio" target="_blank">
-            <i class="fas fa-laptop-code"></i> Voir mon portfolio
-          </a>
+          <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin: 0 -5px;">
+            <a href="https://wa.me/22990259815" class="button button-whatsapp" target="_blank" style="flex: 1 1 200px; min-width: 180px;">
+              <i class="fab fa-whatsapp"></i> WhatsApp
+            </a>
+            <a href="https://grts.pages.dev" class="button button-portfolio" target="_blank" style="flex: 1 1 200px; min-width: 180px;">
+              <i class="fas fa-laptop-code"></i> Portfolio
+            </a>
+          </div>
         </div>
         
         <div class="signature">
