@@ -17,8 +17,19 @@ const validateContact = (value) => {
   // Validation du téléphone (obligatoire)
   if (!phone || phone.trim() === '') {
     errors.push('Le numéro de téléphone est obligatoire');
-  } else if (!/^[0-9+\s-]{10,20}$/.test(phone)) {
-    errors.push('Le numéro de téléphone est invalide. Format attendu : +33 6 12 34 56 78');
+  } else {
+    // Nettoyer le numéro pour la validation (supprimer tout sauf les chiffres et +)
+    const cleanPhone = phone.replace(/[^0-9+]/g, '');
+    
+    // Vérifier les formats acceptés :
+    // - 0022990259815 (format international avec 00)
+    // - 22990259815 (format international sans +)
+    // - +22990259815 (format international avec +)
+    // - 090259815 (format local avec 0)
+    // - 90259815 (format local sans 0)
+    if (!/^(\+229|00229|229|0)?[1-9]\d{7}$/.test(cleanPhone)) {
+      errors.push('Le numéro de téléphone est invalide. Formats acceptés : 0022990259815, 22990259815, +22990259815, 090259815 ou 90259815');
+    }
   }
   
   // Validation de l'objet

@@ -1,7 +1,31 @@
 // Stockage en mémoire pour le rate limiting
-const rateLimits = new Map();
+export const rateLimits = new Map();
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const RATE_LIMIT_MAX = 10; // 10 requêtes max par fenêtre
+
+/**
+ * Réinitialise le compteur de rate limit pour une IP spécifique ou pour toutes les IPs
+ * @param {string} [ip] - L'IP à réinitialiser (optionnel, si non fourni, réinitialise tout)
+ * @returns {Object} - Résultat de l'opération
+ */
+export const resetRateLimit = (ip) => {
+  if (ip) {
+    // Réinitialiser pour une IP spécifique
+    if (rateLimits.has(ip)) {
+      rateLimits.delete(ip);
+      return { success: true, message: `Rate limit réinitialisé pour l'IP: ${ip}` };
+    }
+    return { success: false, message: `Aucune entrée trouvée pour l'IP: ${ip}` };
+  }
+  
+  // Réinitialiser pour toutes les IPs
+  const count = rateLimits.size;
+  rateLimits.clear();
+  return { 
+    success: true, 
+    message: `Tous les rate limits ont été réinitialisés (${count} IP(s) affectée(s))` 
+  };
+};
 
 const rateLimitMiddleware = async (c, next) => {
   const now = Date.now();
