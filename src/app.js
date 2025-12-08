@@ -2,7 +2,6 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { compress } from 'hono/compress';
 import contactRoutes from './routes/contactRoutes.js';
-import { requestAdminLogin, verifyToken } from './controllers/adminAuthController.js';
 import { logger } from './utils/logger.js';
 import { initializeDatabase } from './config/db-init.js';
 import rateLimit from './middlewares/rateLimit.js';
@@ -38,7 +37,8 @@ app.use('*', async (c, next) => {
   if (origin && allowedOrigins.includes(origin)) {
     c.header('Access-Control-Allow-Origin', origin);
     c.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    c.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-request-id');
+    c.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-request-id, x-refresh-token');
+    c.header('Access-Control-Expose-Headers', 'x-access-token, x-refresh-token');
     c.header('Access-Control-Allow-Credentials', 'true');
     c.header('Access-Control-Max-Age', '86400');
   }
@@ -97,12 +97,8 @@ app.onError((err, c) => {
   }, 500);
 });
 
-// Routes d'authentification admin
-app.post('/admin/auths-connection', requestAdminLogin);
-app.get('/api/admin/auth/verify-token', verifyToken);
-app.get('/admin/auth/verify-token', verifyToken); // Ajout de la route sans le préfixe /api
-
-// Routes de l'API (le rate limiting est déjà géré par le middleware global)
+// Routes d'administration
+app.route('/api/contact', contactRoutes);
 app.route('/api', contactRoutes);
 
 // Route pour soumettre le formulaire
