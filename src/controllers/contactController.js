@@ -612,4 +612,3 @@ export const updateContactStatus = async (c) => {
   }
 };
 
-export { submitContactForm, healthCheck, getMetrics, resetAllRateLimits, getAllContacts };
