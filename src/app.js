@@ -108,7 +108,7 @@ app.route('/api', contactRoutes);
 // Route de santé (non soumise au rate limiting)
 app.get('/health', (c) => {
   return c.json({ 
-    status: '👌',
+    status: '',
   });
 });
 
