@@ -264,11 +264,23 @@ export const submitContactForm = async (c) => {
 
   try {
     // Récupération des données du formulaire
-    const { prenom, nom, email, telephone, projet, whatsapp } = await c.req.json();
+    const { name, email, phone, subject, message } = await c.req.json();
+    
+    // Extraction du prénom et du nom
+    const prenom = name ? name.split(' ')[0] : '';
+    const nom = name ? name.split(' ').slice(1).join(' ') : '';
+    const telephone = phone || '';
+    const projet = message || subject || '';
+    const whatsapp = true; // Toujours true par défaut
     
     // Validation des données
-    if (!email || !projet) {
-      return c.json({ error: 'Email et projet sont requis' }, 400);
+    if (!email) {
+      return c.json({ error: 'L\'email est requis' }, 400);
+    }
+    
+    // Vérifier qu'au moins un des champs est rempli
+    if (!message && !subject) {
+      return c.json({ error: 'Veuillez remplir au moins le sujet ou le message' }, 400);
     }
 
     // Préparer et envoyer la réponse immédiatement
@@ -336,7 +348,7 @@ export const submitContactForm = async (c) => {
             email, 
             telephone || null, 
             projet, 
-            whatsapp ? 1 : 0, 
+            1, // 1 pour whatsapp (toujours true)
             new Date().toISOString()
           ]
         });
