@@ -14,7 +14,7 @@ node_modules/
 # env
 
 .env.production
-.env
+
 # logs
 logs/
 *.log
@@ -23,6 +23,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-
+.env
 # misc
 .DS_Store

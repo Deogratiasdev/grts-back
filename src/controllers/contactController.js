@@ -234,62 +234,41 @@ const INSERT_CONTACT_QUERY = `
   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
+// Récupérer tous les contacts
+export const getAllContacts = async (c) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT id, prenom, nom, email, telephone, projet, whatsapp, 
+                   created_at as createdAt, repondu
+            FROM contacts 
+            ORDER BY created_at DESC
+        `);
+        return c.json({ 
+            success: true, 
+            data: rows 
+        });
+    } catch (error) {
+        console.error('Erreur lors de la récupération des contacts:', error);
+        return c.json({ 
+            success: false, 
+            message: 'Erreur lors de la récupération des contacts' 
+        }, 500);
+    }
+};
+
+// Submit contact form
 export const submitContactForm = async (c) => {
-  const startTime = process.hrtime();
-  const requestId = Math.random().toString(36).substring(2, 10);
+  const startTime = Date.now();
+  const requestId = crypto.randomUUID();
   let success = false;
-  
+
   try {
-    logger.debug(`[${requestId}] Nouvelle soumission de formulaire reçue`, {
-      headers: c.req.raw.headers,
-      ip: c.req.header('x-forwarded-for') || c.req.header('cf-connecting-ip') || 'unknown'
-    });
+    // Récupération des données du formulaire
+    const { prenom, nom, email, telephone, projet, whatsapp } = await c.req.json();
     
-    // Récupérer les données validées et forcer whatsapp à true
-    const { prenom, nom, email, telephone, projet } = c.req.valid || {};
-    const whatsapp = true; // Toujours activer WhatsApp
-    
-    logger.info(`[${requestId}] Tentative de soumission pour l'email: ${email}`);
-    logger.debug(`[${requestId}] Données du formulaire:`, { 
-      prenom: prenom ? '***' : 'non fourni',
-      nom: nom ? '***' : 'non fourni',
-      email: email ? `${email.substring(0, 3)}***@${email.split('@')[1]}` : 'non fourni',
-      telephone: telephone ? '***' : 'non fourni',
-      projet: projet ? projet.substring(0, 20) + (projet.length > 20 ? '...' : '') : 'non fourni',
-      whatsapp: whatsapp ? 'oui' : 'non'
-    });
-    
-    // Vérification d'email existant optimisée avec récupération de la date
-    logger.debug(`[${requestId}] Vérification de l'existence de l'email`);
-    const existing = await db.execute({
-      sql: 'SELECT created_at FROM contacts WHERE email = ? ORDER BY created_at DESC LIMIT 1',
-      args: [email]
-    });
-    
-    if (existing.rows.length > 0) {
-      const existingDate = new Date(existing.rows[0].created_at);
-      const formattedDate = existingDate.toLocaleString('fr-FR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-      
-      const errorMessage = `Un message avec cette adresse email a déjà été envoyé le ${formattedDate}.`;
-      logger.warn(`[${requestId}] ${errorMessage}`);
-      
-      performanceMetrics.recordRequest(
-        process.hrtime(startTime)[1] / 1000000,
-        false
-      );
-      
-      return c.json({
-        success: false,
-        error: errorMessage,
-        code: 'EMAIL_ALREADY_EXISTS',
-        lastSent: formattedDate
-      }, 400);
+    // Validation des données
+    if (!email || !projet) {
+      return c.json({ error: 'Email et projet sont requis' }, 400);
     }
 
     // Préparer et envoyer la réponse immédiatement
@@ -298,7 +277,7 @@ export const submitContactForm = async (c) => {
       message: 'Votre message a été reçu. Nous vous contacterons bientôt !',
       requestId
     });
-    
+
     // Fonction pour l'envoi des emails en arrière-plan
     const sendEmailsInBackground = async () => {
       if (!isValidEmail(email)) {
@@ -542,15 +521,95 @@ export const healthCheck = async (c) => {
     logger.error('Health check: Erreur de connexion à la base de données', dbError);
   }
   
-  const status = dbHealthy ? 'healthy' : 'degraded';
   const responseTime = Date.now() - startTime;
+  const status = dbHealthy ? 'healthy' : 'degraded';
   
   logger.info(`Health check: ${status} (${responseTime}ms)`);
   
-  return c.json({ 
+  return c.json({
     status,
     timestamp: new Date().toISOString(),
-    db: dbHealthy ? 'connected' : 'error',
+    uptime: process.uptime(),
+    database: dbHealthy ? 'connected' : 'disconnected',
+    memoryUsage: process.memoryUsage(),
     responseTime: `${responseTime}ms`
-  });
+  }, dbHealthy ? 200 : 503);
 };
+
+// Supprimer un ou plusieurs contacts
+export const deleteContacts = async (c) => {
+  try {
+    const { ids } = await c.req.json();
+    
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return c.json({ 
+        success: false, 
+        message: 'Aucun ID de contact fourni' 
+      }, 400);
+    }
+    
+    // Vérifier que tous les IDs sont des nombres valides
+    if (!ids.every(id => Number.isInteger(id))) {
+      return c.json({ 
+        success: false, 
+        message: 'Les IDs doivent être des nombres entiers' 
+      }, 400);
+    }
+    
+    const [result] = await db.query(
+      'DELETE FROM contacts WHERE id IN (?)', 
+      [ids]
+    );
+    
+    return c.json({ 
+      success: true, 
+      message: `${result.affectedRows} contact(s) supprimé(s)` 
+    });
+  } catch (error) {
+    console.error('Erreur lors de la suppression des contacts:', error);
+    return c.json({ 
+      success: false, 
+      message: 'Erreur lors de la suppression des contacts' 
+    }, 500);
+  }
+};
+
+// Mettre à jour le statut "repondu" d'un contact
+export const updateContactStatus = async (c) => {
+  try {
+    const { id } = c.req.param();
+    const { repondu } = await c.req.json();
+    
+    if (typeof repondu !== 'boolean') {
+      return c.json({ 
+        success: false, 
+        message: 'Le champ "repondu" est requis et doit être un booléen' 
+      }, 400);
+    }
+    
+    const [result] = await db.query(
+      'UPDATE contacts SET repondu = ? WHERE id = ?',
+      [repondu, id]
+    );
+    
+    if (result.affectedRows === 0) {
+      return c.json({ 
+        success: false, 
+        message: 'Contact non trouvé' 
+      }, 404);
+    }
+    
+    return c.json({ 
+      success: true, 
+      message: 'Statut mis à jour avec succès' 
+    });
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour du contact:', error);
+    return c.json({ 
+      success: false, 
+      message: 'Erreur lors de la mise à jour du contact' 
+    }, 500);
+  }
+};
+
+export { submitContactForm, healthCheck, getMetrics, resetAllRateLimits, getAllContacts };

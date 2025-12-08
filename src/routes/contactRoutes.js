@@ -2,11 +2,15 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import rateLimit from '../middlewares/rateLimit.js';
 import { contactValidator } from '../middlewares/validator.js';
+import { verifyJWT, requireAdmin } from '../middlewares/jwtAuth.js';
 import { 
   submitContactForm, 
   healthCheck, 
   getMetrics, 
-  resetAllRateLimits 
+  resetAllRateLimits,
+  getAllContacts,
+  deleteContacts,
+  updateContactStatus
 } from '../controllers/contactController.js';
 
 const router = new Hono();
@@ -30,5 +34,23 @@ router.post(
 
 // Route pour réinitialiser tous les rate limits
 router.get('/reset-all-rate-limits', resetAllRateLimits);
+
+// Routes protégées par JWT pour l'administration
+const adminRoutes = new Hono();
+
+// Middleware d'authentification JWT pour toutes les routes admin
+adminRoutes.use('*', verifyJWT, requireAdmin);
+
+// Récupérer tous les contacts (pour l'administration)
+adminRoutes.get('/contacts', getAllContacts);
+
+// Supprimer un ou plusieurs contacts (pour l'administration)
+adminRoutes.delete('/contacts', deleteContacts);
+
+// Mettre à jour le statut "repondu" d'un contact (pour l'administration)
+adminRoutes.patch('/contacts/:id', updateContactStatus);
+
+// Monter les routes admin sous le préfixe /admin
+router.route('/admin', adminRoutes);
 
 export default router;
