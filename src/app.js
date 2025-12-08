@@ -109,7 +109,6 @@ app.route('/api', contactRoutes);
 app.get('/health', (c) => {
   return c.json({ 
     status: 'ok',
-    timestamp: new Date().toISOString()
   });
 });
 
