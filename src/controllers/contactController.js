@@ -131,6 +131,16 @@ const DOT_SYMBOL = '.';
 const emailCache = new Map();
 const EMAIL_CACHE_TTL = 5 * 60 * 1000; // 5 minutes de cache
 
+// Stockage en mémoire pour le rate limiting par IP
+export const rateLimits = new Map();
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const RATE_LIMIT_MAX = 10; // 10 requêtes max par fenêtre
+
+// Stockage pour le rate limiting par email
+export const emailRateLimits = new Map();
+const EMAIL_RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 heures
+const EMAIL_RATE_LIMIT_MAX = 3; // 3 soumissions max par email toutes les 24h
+
 // Validation d'email optimisée avec cache
 function isValidEmail(email) {
   if (typeof email !== 'string') return false;
@@ -256,6 +266,40 @@ export const getAllContacts = async (c) => {
     }
 };
 
+// Vérifie la limite de soumissions par email
+async function checkEmailRateLimit(email) {
+  const now = Date.now();
+  const emailKey = email.toLowerCase();
+  
+  if (!emailRateLimits.has(emailKey)) {
+    emailRateLimits.set(emailKey, { count: 1, firstRequest: now });
+    return { allowed: true };
+  }
+
+  const emailLimit = emailRateLimits.get(emailKey);
+  const timeSinceFirstRequest = now - emailLimit.firstRequest;
+  
+  // Réinitialiser le compteur si la fenêtre de 24h est dépassée
+  if (timeSinceFirstRequest > EMAIL_RATE_LIMIT_WINDOW_MS) {
+    emailLimit.count = 1;
+    emailLimit.firstRequest = now;
+    return { allowed: true };
+  }
+  
+  // Vérifier si la limite est atteinte
+  if (emailLimit.count >= EMAIL_RATE_LIMIT_MAX) {
+    const timeLeft = Math.ceil((EMAIL_RATE_LIMIT_WINDOW_MS - timeSinceFirstRequest) / (60 * 60 * 1000));
+    return { 
+      allowed: false, 
+      message: `Limite de ${EMAIL_RATE_LIMIT_MAX} soumissions par email toutes les 24h atteinte. Veuillez réessayer dans ${timeLeft} heures.`
+    };
+  }
+  
+  // Incrémenter le compteur
+  emailLimit.count++;
+  return { allowed: true };
+}
+
 // Submit contact form
 export const submitContactForm = async (c) => {
   const startTime = Date.now();
@@ -265,6 +309,12 @@ export const submitContactForm = async (c) => {
   try {
     // Récupération des données du formulaire
     const { name, email, phone, subject, message } = await c.req.json();
+    
+    // Vérifier la limite de soumissions par email
+    const emailCheck = await checkEmailRateLimit(email);
+    if (!emailCheck.allowed) {
+      return c.json({ error: emailCheck.message }, 429);
+    }
     
     // Extraction du prénom et du nom
     const prenom = name ? name.split(' ')[0] : '';
