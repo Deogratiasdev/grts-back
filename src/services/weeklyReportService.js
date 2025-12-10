@@ -3,7 +3,6 @@ import { fr } from 'date-fns/locale';
 import db from '../config/db.js';
 import { sendEmail } from './emailService.js';
 import generateWeeklyReportEmail from '../templates/weeklyReportTemplate.js';
-import { logger } from '../utils/logger.js';
 
 /**
  * Récupère les clients de la semaine en cours
@@ -24,7 +23,7 @@ async function getWeeklyClients() {
 
     return rows;
   } catch (error) {
-    logger.error('Erreur lors de la récupération des clients de la semaine', error);
+    console.error('Erreur lors de la récupération des clients de la semaine:', error);
     throw error;
   }
 }
@@ -48,16 +47,10 @@ async function sendWeeklyReport(recipientEmail = null) {
     const { subject, html } = generateWeeklyReportEmail(clients);
     
     // Envoi de l'email
-    const emailResult = await sendEmail({
+    await sendEmail({
       to: email,
       subject: subject,
       html: html
-    });
-    
-    logger.debug('Email de rapport hebdomadaire envoyé', {
-      to: email,
-      messageId: emailResult.messageId,
-      subject: subject
     });
 
     return {
@@ -66,10 +59,7 @@ async function sendWeeklyReport(recipientEmail = null) {
       clientsCount: clients.length
     };
   } catch (error) {
-    logger.error('Erreur lors de l\'envoi du rapport hebdomadaire', {
-      error: error.message,
-      stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
-    });
+    console.error('Erreur lors de l\'envoi du rapport hebdomadaire:', error);
     throw error;
   }
 }

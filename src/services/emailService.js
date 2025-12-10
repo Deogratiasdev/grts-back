@@ -56,10 +56,10 @@ const sendEmail = async ({ to, subject, html: htmlContent, sender = null }) => {
 
   try {
     const response = await apiInstance.sendTransacEmail(sendSmtpEmail);
-    logger.debug('Email envoyé avec succès', { messageId: response.messageId });
-    return response;
+    console.log('Email envoyé avec succès:', response);
+    return true;
   } catch (error) {
-    logger.error('Erreur de l\'API Brevo', {
+    console.error('Erreur détaillée de l\'API Brevo:', {
       status: error.status,
       response: error.response?.text,
       message: error.message,

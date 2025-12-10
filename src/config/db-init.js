@@ -1,5 +1,4 @@
 import db from './db.js';
-import { logger } from '../utils/logger.js';
 
 // Fonction pour initialiser la base de données
 export async function initializeDatabase() {
@@ -33,9 +32,9 @@ export async function initializeDatabase() {
     await db.execute('CREATE INDEX IF NOT EXISTS idx_auth_token ON auth_tokens(token)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_auth_email ON auth_tokens(email)');
 
-    logger.info('Base de données initialisée avec succès');
+    console.log('✅ Base de données initialisée avec succès');
   } catch (error) {
-    logger.error('Erreur lors de l\'initialisation de la base de données', error);
+    console.error('❌ Erreur lors de l\'initialisation de la base de données:', error);
     throw error;
   }
 }

@@ -3,7 +3,7 @@ import { cors } from 'hono/cors';
 import { compress } from 'hono/compress';
 import contactRoutes from './routes/contactRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
-import { logger, httpLogger } from './utils/logger.js';
+import { logger } from './utils/logger.js';
 import { initializeDatabase } from './config/db-init.js';
 import rateLimit from './middlewares/rateLimit.js';
 import cron from 'node-cron';
@@ -73,59 +73,30 @@ app.use('*', async (c, next) => {
   return rateLimit(c, next);
 });
 
-// Middleware de logging HTTP optimisé
+// Middleware de logging
 app.use('*', async (c, next) => {
   const start = Date.now();
+  const { method, path } = c.req;
+  
+  logger.info(`[${method}] ${path}`);
   
   try {
     await next();
     const ms = Date.now() - start;
-    c.res.headers.set('X-Response-Time', `${ms}ms`);
-    
-    // Log de la réponse
-    logger.response({
-      ...c.res,
-      req: c.req,
-      getHeader: (name) => c.res.headers.get(name)
-    }, ms);
-    
+    logger.info(`[${method}] ${path} - ${c.res.status} (${ms}ms)`);
   } catch (error) {
     const ms = Date.now() - start;
-    logger.error(`Erreur lors du traitement de la requête ${c.req.method} ${c.req.path}`, error);
+    logger.error(`[${method}] ${path} - Erreur: ${error.message} (${ms}ms)`, error);
     throw error;
   }
 });
 
-// Middleware de logging des requêtes entrantes
-app.use('*', async (c, next) => {
-  logger.request(c.req);
-  await next();
-});
-
-// Middleware de compression
-app.use('*', compress());
-
 // Gestion des erreurs globale
 app.onError((err, c) => {
-  const errorId = Math.random().toString(36).substring(2, 10);
-  
-  logger.error(`[${errorId}] Erreur non gérée: ${err.message}`, {
-    error: {
-      message: err.message,
-      stack: process.env.NODE_ENV !== 'production' ? err.stack : undefined,
-      name: err.name,
-    },
-    request: {
-      method: c.req.method,
-      url: c.req.url,
-      headers: c.req.raw.headers,
-    },
-  });
-
+  console.error('Erreur non gérée:', err);
   return c.json({ 
     success: false,
-    error: 'Une erreur interne est survenue',
-    errorId: process.env.NODE_ENV !== 'production' ? errorId : undefined
+    error: 'Une erreur interne est survenue' 
   }, 500);
 });
 

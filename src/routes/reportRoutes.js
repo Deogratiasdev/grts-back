@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import ReportController from '../controllers/reportController.js';
-import rateLimiter from '../middlewares/rateLimit.js';
+import { rateLimiter } from '../middlewares/rateLimit.js';
 
 const router = new Hono();
 
@@ -17,10 +17,7 @@ router.post('/weekly', async (c) => {
     const result = await ReportController.sendWeeklyReport();
     return c.json(result);
   } catch (error) {
-    logger.error('Erreur dans la route de rapport', {
-      error: error.message,
-      stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
-    });
+    console.error('Erreur dans la route de rapport:', error);
     return c.json({
       success: false,
       message: 'Erreur lors du traitement de la requête',

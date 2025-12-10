@@ -258,7 +258,7 @@ export const getAllContacts = async (c) => {
             data: rows 
         });
     } catch (error) {
-        logger.error('Erreur lors de la récupération des contacts', error);
+        console.error('Erreur lors de la récupération des contacts:', error);
         return c.json({ 
             success: false, 
             message: 'Erreur lors de la récupération des contacts' 
@@ -562,7 +562,7 @@ export const resetAllRateLimits = async (c) => {
       details: result
     });
   } catch (error) {
-    logger.error('Erreur lors de la réinitialisation du rate limit', error);
+    console.error('Erreur lors de la réinitialisation du rate limit:', error);
     return c.json({ 
       success: false, 
       error: 'Erreur lors de la réinitialisation du rate limit' 
@@ -628,7 +628,7 @@ export const deleteContacts = async (c) => {
       message: `${result.affectedRows} contact(s) supprimé(s)` 
     });
   } catch (error) {
-    logger.error('Erreur lors de la suppression des contacts', error);
+    console.error('Erreur lors de la suppression des contacts:', error);
     return c.json({ 
       success: false, 
       message: 'Erreur lors de la suppression des contacts' 
@@ -666,7 +666,7 @@ export const updateContactStatus = async (c) => {
       message: 'Statut mis à jour avec succès' 
     });
   } catch (error) {
-    logger.error('Erreur lors de la mise à jour du contact', error);
+    console.error('Erreur lors de la mise à jour du contact:', error);
     return c.json({ 
       success: false, 
       message: 'Erreur lors de la mise à jour du contact' 

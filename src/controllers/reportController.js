@@ -29,8 +29,8 @@ class ReportController {
         clientsCount: result.clientsCount
       });
     } catch (error) {
-      logger.error('Erreur dans le contrôleur de rapport', error);
-      return res.status(500).json({
+      console.error('Erreur dans le contrôleur de rapport:', error);
+      res.status(500).json({
         success: false,
         message: 'Erreur lors de l\'envoi du rapport hebdomadaire',
         error: error.message
