@@ -1,4 +1,5 @@
 import db from './db.js';
+import { logger } from '../utils/logger.js';
 
 // Fonction pour initialiser la base de données
 export async function initializeDatabase() {
