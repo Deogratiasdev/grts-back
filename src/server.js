@@ -30,7 +30,6 @@ async function initializeDatabase() {
       )
     `);
     
-    console.log('✅ Base de données initialisée avec succès');
     logger.info('Base de données initialisée avec succès');
     
   } catch (error) {
@@ -118,7 +117,6 @@ const startServer = async () => {
     process.on('SIGTERM', shutdown);
 
   } catch (error) {
-    console.error('❌ Échec du démarrage du serveur:', error);
     logger.error('Échec du démarrage du serveur:', error);
     process.exit(1);
   }

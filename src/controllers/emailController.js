@@ -23,7 +23,11 @@ export const sendEmail = async ({ to, subject, html, text = '' }) => {
     const data = await apiInstance.sendTransacEmail(sendSmtpEmail);
     return { success: true, messageId: data.messageId };
   } catch (error) {
-    console.error('Erreur lors de l\'envoi de l\'email:', error);
+    logger.error('Erreur lors de l\'envoi de l\'email', {
+      error: error.message,
+      response: error.response?.text,
+      stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
+    });
     return { 
       success: false, 
       error: error.response?.text || error.message || 'Erreur inconnue lors de l\'envoi de l\'email' 

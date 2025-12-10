@@ -10,11 +10,15 @@ if (process.env.TURSO_DB_TOKEN && process.env.TURSO_DB_TOKEN !== 'local') {
   config.authToken = process.env.TURSO_DB_TOKEN;
 }
 
-console.log('Configuration de la base de données:', {
-  url: config.url,
-  hasAuthToken: !!config.authToken
-});
-
+// Configuration de la connexion à la base de données
 const db = createClient(config);
+
+// Log de la configuration (uniquement en développement)
+if (process.env.NODE_ENV !== 'production') {
+  logger.debug('Configuration de la base de données', {
+    url: config.url.replace(/\/\/([^:]+):[^@]+@/, '//$1:****@'), // Masque les informations sensibles
+    hasAuthToken: !!config.authToken
+  });
+}
 
 export default db;

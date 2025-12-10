@@ -32,9 +32,9 @@ export async function initializeDatabase() {
     await db.execute('CREATE INDEX IF NOT EXISTS idx_auth_token ON auth_tokens(token)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_auth_email ON auth_tokens(email)');
 
-    console.log('✅ Base de données initialisée avec succès');
+    logger.info('Base de données initialisée avec succès');
   } catch (error) {
-    console.error('❌ Erreur lors de l\'initialisation de la base de données:', error);
+    logger.error('Erreur lors de l\'initialisation de la base de données', error);
     throw error;
   }
 }
