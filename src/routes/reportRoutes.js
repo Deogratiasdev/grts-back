@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import ReportController from '../controllers/reportController.js';
-import { rateLimiter } from '../middlewares/rateLimit.js';
+import rateLimiter from '../middlewares/rateLimit.js';
 
 const router = new Hono();
 
