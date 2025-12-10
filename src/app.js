@@ -104,17 +104,17 @@ app.onError((err, c) => {
 app.route('/api/contacts', contactRoutes);
 app.route('/api/reports', reportRoutes);
 
-// Planification du rapport hebdomadaire (tous les dimanches à 9h00)
+// Planification du rapport hebdomadaire (tous les dimanches à 18h00)
 if (process.env.NODE_ENV !== 'test') {
-  cron.schedule('0 9 * * 0', async () => {
+  cron.schedule('0 18 * * 0', async () => {
     try {
-      const recipientEmail = process.env.ADMIN_EMAIL;
+      const recipientEmail = process.env.ADMIN_EMAIL_1;
       if (recipientEmail) {
         logger.info('Démarrage du rapport hebdomadaire...');
         await sendWeeklyReport(recipientEmail);
         logger.info('Rapport hebdomadaire envoyé avec succès');
       } else {
-        logger.warn('Impossible d\'envoyer le rapport hebdomadaire: ADMIN_EMAIL non configuré');
+        logger.warn('Impossible d\'envoyer le rapport hebdomadaire: ADMIN_EMAIL_1 non configuré');
       }
     } catch (error) {
       logger.error('Erreur lors de l\'envoi du rapport hebdomadaire:', error);
@@ -123,7 +123,7 @@ if (process.env.NODE_ENV !== 'test') {
     timezone: 'Europe/Paris'
   });
   
-  logger.info('Tâche planifiée: rapport hebdomadaire configuré pour s\'exécuter tous les dimanches à 9h00');
+  logger.info('Tâche planifiée: rapport hebdomadaire configuré pour s\'exécuter tous les dimanches à 18h00');
 }
 
 // Route API racine
