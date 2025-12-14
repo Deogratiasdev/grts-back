@@ -1,10 +1,13 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { compress } from 'hono/compress';
-import contactRoutes from './routes/contactRoutes.js';
 import { logger } from './utils/logger.js';
 import { initializeDatabase } from './config/db-init.js';
 import rateLimit from './middlewares/rateLimit.js';
+
+// Import des routes
+import contactRoutes from './routes/contactRoutes.js';
+import lifeAssistantRoutes from './routes/lifeassistant.routes.js';
 
 const app = new Hono();
 
@@ -97,8 +100,9 @@ app.onError((err, c) => {
   }, 500);
 });
 
-// Routes d'administration
-app.route('/api/contact', contactRoutes);
+// Routes de l'API
+app.route('/api/lifeassistant', lifeAssistantRoutes);
+app.route('/api/contacts', contactRoutes);
 app.route('/api', contactRoutes);
 
 // Route pour soumettre le formulaire
