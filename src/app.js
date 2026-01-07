@@ -8,6 +8,7 @@ import rateLimit from './middlewares/rateLimit.js';
 // Import des routes
 import contactRoutes from './routes/contactRoutes.js';
 import lifeAssistantRoutes from './routes/lifeassistant.routes.js';
+import { iaRoute, healthRoute, corsMiddleware, limiter, notFoundHandler } from './controllers/ia.routes.js';
 
 const app = new Hono();
 
@@ -32,8 +33,13 @@ const allowedOrigins = [
   'http://10.18.15.76:3000'
 ].filter(Boolean);
 
-// Middleware CORS personnalisé
+// Middleware CORS personnalisé pour les routes non-assistant
 app.use('*', async (c, next) => {
+  // Si c'est une route d'API LifeAssistant, on passe au middleware suivant sans appliquer CORS
+  if (c.req.path.startsWith('/api/lifeassistant')) {
+    return next();
+  }
+
   const origin = c.req.header('origin');
   
   // Vérifier si l'origine est autorisée
@@ -105,6 +111,12 @@ app.route('/api/lifeassistant', lifeAssistantRoutes);
 app.route('/api/contacts', contactRoutes);
 app.route('/api', contactRoutes);
 
+// Configuration des routes IA
+app.use('/api/ia', limiter);
+app.use('/api/ia', corsMiddleware);
+app.post('/api/ia', iaRoute);
+app.get('/api/ia/health', healthRoute);
+
 // Route pour soumettre le formulaire
 // Le rate limiting est maintenant géré au niveau global de l'application
 // app.post('/contact', rateLimit, contactValidator, submitContactForm);
@@ -126,11 +138,6 @@ app.get('/', (c) => {
 });
 
 // Gestion des routes non trouvées
-app.notFound((c) => {
-  return c.json({
-    success: false,
-    error: 'Endpoint non trouvé'
-  }, 404);
-});
+app.notFound(notFoundHandler);
 
 export default app;

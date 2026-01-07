@@ -2,12 +2,21 @@ import { Hono } from 'hono';
 import { logger } from '../utils/logger.js';
 import AuthModel from '../models/auth.model.js';
 import { sendEmail } from '../services/emailService.js';
+import db from '../config/db.js';
 
 class AuthController {
   // Envoyer un code de vérification
   static async sendVerificationCode(c) {
     try {
-      const { email } = await c.req.json();
+      const body = await c.req.json();
+      logger.info('Requête reçue - sendVerificationCode:', { 
+        url: c.req.url,
+        method: c.req.method,
+        headers: Object.fromEntries(c.req.raw.headers),
+        body
+      });
+      
+      const { email } = body;
 
       // Valider l'email
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -172,23 +181,47 @@ class AuthController {
         html: emailHtml
       });
 
-      return c.json({
+      const responseData = {
         success: true,
         message: 'Code de vérification envoyé avec succès'
+      };
+      
+      logger.info('Réponse envoyée - sendVerificationCode:', {
+        status: 200,
+        response: responseData
       });
+      
+      return c.json(responseData);
     } catch (error) {
-      logger.error('Error sending verification code:', error);
-      return c.json(
-        { success: false, message: 'Erreur lors de l\'envoi du code de vérification' },
-        500
-      );
+      const errorResponse = { 
+        success: false, 
+        message: 'Erreur lors de l\'envoi du code de vérification',
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      };
+      
+      logger.error('Erreur dans sendVerificationCode:', {
+        error: error.message,
+        stack: error.stack,
+        response: errorResponse
+      });
+      
+      return c.json(errorResponse, 500);
     }
   }
 
   // Vérifier le code et connecter l'utilisateur
   static async verifyCodeAndLogin(c) {
     try {
-      const { email, code } = await c.req.json();
+      const body = await c.req.json();
+      logger.info('Requête reçue - verifyCodeAndLogin:', { 
+        url: c.req.url,
+        method: c.req.method,
+        headers: Object.fromEntries(c.req.raw.headers),
+        body
+      });
+      
+      const { email, code } = body;
 
       // Valider l'entrée
       if (!email || !code) {
@@ -214,53 +247,59 @@ class AuthController {
       const userAgent = c.req.header('user-agent') || '';
       const sessionId = await AuthModel.createSession(user.id, userAgent);
 
-      // Définir le cookie de session
-      c.cookie('session_id', sessionId, {
-        httpOnly: false, // Désactivé pour l'accès mobile
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'Lax',
-        maxAge: 7 * 24 * 60 * 60, // 7 jours
-        path: '/',
-      });
-
-      // Réponse avec les informations utilisateur
-      return c.json({
+      // Retourner le token dans la réponse JSON
+      const responseData = {
         success: true,
         authToken: sessionId,
         user: {
           id: user.id,
           email: user.email,
-          name: user.name || user.email.split('@')[0],
+          name: user.name,
           role: user.role
         }
+      };
+      
+      logger.info('Réponse envoyée - verifyCodeAndLogin:', {
+        status: 200,
+        response: responseData
       });
+      
+      return c.json(responseData);
     } catch (error) {
-      logger.error('Error during login:', error);
-      return c.json(
-        { success: false, message: 'Erreur lors de la connexion' },
-        500
-      );
+      const errorResponse = { 
+        success: false, 
+        message: 'Erreur lors de la connexion',
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      };
+      
+      logger.error('Erreur dans verifyCodeAndLogin:', {
+        error: error.message,
+        stack: error.stack,
+        response: errorResponse
+      });
+      
+      return c.json(errorResponse, 500);
     }
   }
 
   // Déconnexion
   static async logout(c) {
     try {
-      const sessionId = c.req.cookie('session_id');
+      const authHeader = c.req.header('Authorization');
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return c.json({ success: true, message: 'Déjà déconnecté' });
+      }
+      
+      const sessionId = authHeader.split(' ')[1];
       
       // Supprimer la session de la base de données
-      if (sessionId) {
+      if (db) {
         await db.execute(
           'DELETE FROM user_sessions WHERE id = ?',
           [sessionId]
         );
       }
-
-      // Supprimer le cookie de session
-      c.cookie('session_id', '', {
-        expires: new Date(0),
-        path: '/',
-      });
 
       return c.json({
         success: true,
@@ -278,10 +317,12 @@ class AuthController {
   // Vérifier l'état d'authentification
   static async checkAuth(c) {
     try {
-      const sessionId = c.req.cookie('session_id');
-      if (!sessionId) {
+      const authHeader = c.req.header('Authorization');
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return c.json({ authenticated: false }, 200);
       }
+      
+      const sessionId = authHeader.split(' ')[1];
 
       // Vérifier la session (le cache est géré en interne par verifySession)
       const { valid, user } = await AuthModel.verifySession(sessionId);

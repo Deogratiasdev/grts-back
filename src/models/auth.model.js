@@ -50,21 +50,26 @@ class AuthModel {
       }
 
       // Si pas dans le cache, vérifier dans la base de données
-      const [result] = await db.execute(
+      const result = await db.execute(
         `SELECT * FROM verification_codes 
          WHERE email = ? AND code = ? AND used = 0 
          AND expires_at > CURRENT_TIMESTAMP`,
         [email, code]
       );
 
-      if (!result.rows || result.rows.length === 0) {
+      // Vérifier si on a des résultats (structure de réponse différente avec Turso)
+      if (!result || !result.rows || result.rows.length === 0) {
         // Incrémenter le compteur de tentatives
-        await db.execute(
-          `UPDATE verification_codes 
-           SET attempts = attempts + 1 
-           WHERE email = ? AND expires_at > CURRENT_TIMESTAMP`,
-          [email]
-        );
+        try {
+          await db.execute(
+            `UPDATE verification_codes 
+             SET attempts = attempts + 1 
+             WHERE email = ? AND expires_at > CURRENT_TIMESTAMP`,
+            [email]
+          );
+        } catch (updateError) {
+          logger.error('Error updating attempt count:', updateError);
+        }
         return { valid: false, message: 'Code invalide ou expiré' };
       }
 
@@ -79,10 +84,14 @@ class AuthModel {
       }
 
       // Marquer le code comme utilisé
-      await db.execute(
-        'UPDATE verification_codes SET used = 1 WHERE id = ?',
-        [verification.id]
-      );
+      try {
+        await db.execute(
+          'UPDATE verification_codes SET used = 1 WHERE id = ?',
+          [verification.id]
+        );
+      } catch (updateError) {
+        logger.error('Error marking code as used:', updateError);
+      }
 
       return { valid: true };
     } catch (error) {
@@ -179,13 +188,22 @@ class AuthModel {
   // Obtenir un utilisateur par ID
   static async getUserById(userId) {
     try {
-      const [result] = await db.execute(
+      const result = await db.execute(
         'SELECT * FROM users WHERE id = ?',
         [userId]
       );
-      return result.rows && result.rows[0] ? result.rows[0] : null;
+      
+      // Vérifier si on a des résultats (structure de réponse différente avec Turso)
+      if (result && result.rows && result.rows.length > 0) {
+        return result.rows[0];
+      }
+      return null;
     } catch (error) {
-      logger.error('Erreur lors de la récupération de l\'utilisateur:', error);
+      logger.error('Erreur lors de la récupération de l\'utilisateur par ID:', {
+        userId,
+        error: error.message,
+        stack: error.stack
+      });
       return null;
     }
   }
@@ -193,10 +211,10 @@ class AuthModel {
   // Vérifier si un email est autorisé
   static async isEmailAllowed(email) {
     try {
-      // Vérifier d'abord dans le cache
-      const cached = cache.isEmailAllowed(email);
-      if (cached !== null) {
-        return cached;
+      // Vérifier dans le cache d'abord
+      const cachedRole = cache.isEmailAllowed(email);
+      if (cachedRole) {
+        return { allowed: true, role: cachedRole.role };
       }
 
       // Vérifier si c'est l'email admin
@@ -207,15 +225,21 @@ class AuthModel {
       }
 
       // Vérifier dans la table des autorisations
-      const [result] = await db.execute(
-        'SELECT * FROM autorisations WHERE email = ?',
-        [email]
-      );
+      try {
+        const [rows] = await db.execute(
+          'SELECT * FROM autorisations WHERE email = ?',
+          [email]
+        );
 
-      if (result.rows && result.rows.length > 0) {
-        const role = result.rows[0].role || 'admin';
-        cache.setAllowedEmail(email, role);
-        return { allowed: true, role };
+        // Vérifier si nous avons des résultats
+        if (Array.isArray(rows) && rows.length > 0) {
+          const role = rows[0].role || 'admin';
+          cache.setAllowedEmail(email, role);
+          return { allowed: true, role };
+        }
+      } catch (dbError) {
+        logger.error('Erreur lors de la vérification des autorisations en base de données:', dbError);
+        // En cas d'erreur de base de données, on continue pour vérifier l'email admin
       }
 
       return { allowed: false };
@@ -229,13 +253,14 @@ class AuthModel {
   static async getUserByEmail(email) {
     try {
       // Vérifier d'abord si l'utilisateur existe
-      const [existingUser] = await db.execute(
+      const result = await db.execute(
         'SELECT * FROM users WHERE email = ?',
         [email]
       );
 
-      if (existingUser.rows && existingUser.rows.length > 0) {
-        return existingUser.rows[0];
+      // Vérifier si on a des résultats (structure de réponse différente avec Turso)
+      if (result && result.rows && result.rows.length > 0) {
+        return result.rows[0];
       }
 
       // Vérifier si l'email est autorisé
@@ -253,16 +278,36 @@ class AuthModel {
         created_at: new Date().toISOString()
       };
 
-      await db.execute(
-        `INSERT INTO users (id, email, name, role, created_at)
-         VALUES (?, ?, ?, ?, ?)`,
-        [newUser.id, newUser.email, newUser.name, newUser.role, newUser.created_at]
-      );
+      try {
+        await db.execute(
+          `INSERT INTO users (id, email, name, role, created_at)
+           VALUES (?, ?, ?, ?, ?)`,
+          [newUser.id, newUser.email, newUser.name, newUser.role, newUser.created_at]
+        );
+        logger.info(`Nouvel utilisateur créé: ${email}`);
+      } catch (insertError) {
+        // En cas d'erreur d'insertion, vérifier si l'utilisateur a été créé entre-temps
+        if (insertError.message.includes('UNIQUE constraint failed')) {
+          const retryResult = await db.execute(
+            'SELECT * FROM users WHERE email = ?',
+            [email]
+          );
+          
+          if (retryResult && retryResult.rows && retryResult.rows.length > 0) {
+            return retryResult.rows[0];
+          }
+        }
+        throw insertError;
+      }
 
       return newUser;
     } catch (error) {
-      logger.error('Error getting user by email:', error);
-      throw new Error('Failed to get user');
+      logger.error('Erreur lors de la récupération/création de l\'utilisateur:', {
+        email,
+        error: error.message,
+        stack: error.stack
+      });
+      throw new Error('Échec de la récupération de l\'utilisateur: ' + error.message);
     }
   }
 }

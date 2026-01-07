@@ -1,7 +1,16 @@
 import db from './db.js';
+import cache from '../utils/cache.js';
+import { logger } from '../utils/logger.js';
 
 // Fonction pour initialiser la base de données
 export async function initializeDatabase() {
+  // Nettoyer le cache au démarrage
+  try {
+    cache.clearAll();
+    logger.info('Cache nettoyé avec succès au démarrage');
+  } catch (error) {
+    logger.error('Erreur lors du nettoyage du cache au démarrage:', error);
+  }
   try {
     // Table des contacts avec UUID
     await db.execute(`
