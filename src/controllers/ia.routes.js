@@ -139,6 +139,12 @@ FORMATAGE DU TEXTE:
 29. Pour doubler la taille: entoure le mot de doubles étoiles **exemple**
 30. Le système appliquera automatiquement le gras, l'italique et le grossissement dans la boîte de discussion
 
+RÈGLE TRÈS TRÈS TRÈS IMPORTANTE:
+31. NE JAMAIS couper tes phrases en plein milieu
+32. Termine TOUJOURS tes phrases complètement avant de passer à une autre idée
+33. Chaque phrase doit être complète et cohérente
+34. Pas de phrases tronquées ou incomplètes
+
 CONTEXTE ACTUEL:
 Derniers messages de la conversation: ${JSON.stringify(conversation_history || [])}
 
