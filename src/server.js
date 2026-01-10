@@ -29,6 +29,23 @@ async function initializeDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Table analytics
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS analytics (
+        id TEXT PRIMARY KEY,
+        ip TEXT NOT NULL,
+        page TEXT NOT NULL,
+        count INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Index pour optimiser les requêtes analytics
+    await db.execute(`CREATE INDEX IF NOT EXISTS idx_analytics_page ON analytics(page)`);
+    await db.execute(`CREATE INDEX IF NOT EXISTS idx_analytics_created ON analytics(created_at)`);
+    await db.execute(`CREATE INDEX IF NOT EXISTS idx_analytics_id ON analytics(id)`);
     
     console.log('✅ Base de données initialisée avec succès');
     logger.info('Base de données initialisée avec succès');

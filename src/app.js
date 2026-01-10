@@ -8,6 +8,7 @@ import rateLimit from './middlewares/rateLimit.js';
 // Import des routes
 import contactRoutes from './routes/contactRoutes.js';
 import lifeAssistantRoutes from './routes/lifeassistant.routes.js';
+import analyticsRoutes from './routes/analytics.routes.js';
 import { iaRoute, healthRoute, corsMiddleware, limiter, notFoundHandler } from './controllers/ia.routes.js';
 
 const app = new Hono();
@@ -110,6 +111,7 @@ app.onError((err, c) => {
 app.route('/api/lifeassistant', lifeAssistantRoutes);
 app.route('/api/contacts', contactRoutes);
 app.route('/api', contactRoutes);
+app.route('/api', analyticsRoutes);
 
 // Configuration des routes IA
 app.use('/api/ia', limiter);
